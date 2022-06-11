@@ -1,0 +1,26 @@
+<resources>
+    <string name="app_name">RestSample1</string>
+    <string name="action_settings">Settings</string>
+    <!-- Strings used for fragments for navigation -->
+    <string name="first_fragment_label">First Fragment</string>
+    <string name="second_fragment_label">Second Fragment</string>
+    <string name="next">Next</string>
+    <string name="previous">Previous</string>
+
+
+    <string name="hello_first_fragment">Hello first fragment</string>
+    <string name="hello_second_fragment">Hello second fragment. Arg: %1$s</string>
+
+    <string name="extreme">%1$s is the time of %2$s</string>
+    <string name="misc_error">"Status: no tidal information - something went wrong!!!"</string>
+    <string name="all_good">"Status: Everything went good"</string>
+
+    <string name="fetch">Fetch</string>
+    <string name="extreme1">Extreme1</string>
+    <string name="extreme2">Extreme2</string>
+    <string name="extreme3">Extreme3</string>
+    <string name="extreme4">Extreme4</string>
+    <string name="status">Status:</string>
+    <string name="fetch_data">Fetch Data</string>
+    <string name="stop_clock">Stop clock</string>
+</resources>
