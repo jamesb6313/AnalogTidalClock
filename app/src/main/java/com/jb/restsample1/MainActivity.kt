@@ -5,42 +5,55 @@ package com.jb.restsample1
 
 import android.app.AlertDialog
 import android.content.Context
-import android.content.res.Resources
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.Build
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
 import android.util.Log
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
-import android.widget.Button
 import android.widget.TextView
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.google.gson.Gson
 import com.jb.restsample1.LogDump.Companion.writeLogCat
-import com.jb.restsample1.TidalCalc
 import com.jb.restsample1.model.TidalExtremes
 import com.jb.restsample1.model.TidalInfo
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Runnable
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.*
 import java.net.URL
-import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.concurrent.timerTask
+import kotlin.math.cos
+import kotlin.math.sin
+
 
 const val TAG = "testInfo"
 class MainActivity : AppCompatActivity() {
 
     companion object {
+// other api sites
+//        val apiUrlSite = "https://livescore6.p.rapidapi.com/matches/v2/list-live?"
+//        val apiUrlInputs = "Category=soccer"
+//        val flightAPIUrl = "https://aerodatabox.p.rapidapi.com/flights/%7BsearchBy%7D/KL1395/2020-06-10"
+//        val covidAPIUrl = "https://covid-193.p.rapidapi.com/countries"
+
+        //fetch("https://raw.githubusercontent.com/justmobiledev/android-kotlin-rest-1/main/support/data/bloginfo.json"
+        //fetch(covidAPIUrl)
+        //fetch(flightAPIUrl)
+
+        //.addHeader("X-RapidAPI-Host", "covid-193.p.rapidapi.com")
+        //.addHeader("X-RapidAPI-Host", "aerodatabox.p.rapidapi.com")
+        //.addHeader("X-RapidAPI-Host", "livescore6.p.rapidapi.com")
+        //.addHeader("Content-Type", "application/json; utf-8")
+        //.addHeader("Accept", "application/json")
+
+
         // API information
         private const val API_URL_SITE = "https://tides.p.rapidapi.com/tides?"
         private const val API_SEARCH =
@@ -57,9 +70,6 @@ class MainActivity : AppCompatActivity() {
     var textViewExt4: TextView? = null
     var textViewStatus: TextView? = null
 
-    var buttonFetch: Button? = null
-    var buttonStop: Button? = null
-
     // Create OkHttp Client
     var client: OkHttpClient = OkHttpClient()
     var jsonStr: String? = null
@@ -72,8 +82,11 @@ class MainActivity : AppCompatActivity() {
     //ClockFace vars
     private var cf: ClockFace? = null
 
+    //timer
+    private var task: Timer? = Timer()
+
     private fun getRequest(sUrl: String): String? {
-        var result: String? = null
+        var result: String?
 
         try {
             // Create URL
@@ -84,11 +97,6 @@ class MainActivity : AppCompatActivity() {
                 .get()
                 .addHeader("X-RapidAPI-Host", "tides.p.rapidapi.com")
                 .addHeader("X-RapidAPI-Key", "945fbddd63msh0ada0e013dd2149p1b349ajsn40c5e8c41e14")
-                //.addHeader("X-RapidAPI-Host", "covid-193.p.rapidapi.com")
-                //.addHeader("X-RapidAPI-Host", "aerodatabox.p.rapidapi.com")
-                //.addHeader("X-RapidAPI-Host", "livescore6.p.rapidapi.com")
-                //.addHeader("Content-Type", "application/json; utf-8")
-                //.addHeader("Accept", "application/json")
                 .build()
 
             // Execute request
@@ -124,7 +132,7 @@ class MainActivity : AppCompatActivity() {
                     // Get the file Location and name where Json File are get stored
                     val fileName = cacheDir.absolutePath+"/tides/TidalExtremesJson.json"
                     //call write Json method
-                    writeJSONtoFile(fileName, result)
+                    writeJSONtoFile(fileName)
 
                 }
                 catch(err:Error) {
@@ -167,27 +175,28 @@ class MainActivity : AppCompatActivity() {
         return null
     }
 
-    private fun writeJSONtoFile(fn:String, jsonResult: String) {
-        //Create list to store the all Tags
+    private fun writeJSONtoFile(fn: String) {
+        //Create list
         val ext = ArrayList<TidalExtremes>()
+
         // Add the Extremes to List
-        modelTideInfo!!.extremes.forEachIndexed  { idx, ti ->
+        modelTideInfo!!.extremes.forEachIndexed  { _, ti ->
             //Log.i(TAG, "> Item ${idx}:\n${ti.datetime} - ${ti.timestamp} - ${ti.height} - ${ti.state}")
             val extItem = TidalExtremes(ti.timestamp, ti.datetime, ti.height, ti.state)
             ext.add(extItem)
         }
 
-        //Create a Object of Post
+        //Create a Object of tides
         val tInfo = TidalInfo(modelTideInfo!!.status, modelTideInfo!!.latitude, modelTideInfo!!.longitude, ext)
-        //Create a Object of Gson
-        val gson = Gson()
-        //Convert the Json object to JsonString
-        val jsonString:String = gson.toJson(tInfo)
+
+        val gson = Gson()                           //Create a Object
+        val jsonString:String = gson.toJson(tInfo)  //Convert the Json object to JsonString
+
         //Initialize the File Writer and write into file
+        //file located "/data/user/0/com.jb.restsample1/cache/tides/TidalExtremesJson.json
         val file=File(fn)
         file.writeText(jsonString)
 
-        // file located "/data/user/0/com.jb.restsample1/cache/tides/TidalExtremesJson.json
     }
 
     @RequiresApi(Build.VERSION_CODES.M)
@@ -216,12 +225,19 @@ class MainActivity : AppCompatActivity() {
         if (!foundCache) {
 //            jsonStr = readJSONFile(0) //use asset file - "testJSON.json"
 //
-//            // Get the file Location and name where Json File are get stored
+//            // Get the file Location and name where Json File stored
 //            val fileName = cacheDir.absolutePath+"/tides/TidalExtremesJson.json"
 //            createModel(jsonStr!!)
 //            writeJSONtoFile(fileName, jsonStr!!)
 
             // do fetch and create new file
+            if (!isNetworkConnected()) {
+                AlertDialog.Builder(this).setTitle("No Internet Connection")
+                    .setMessage("Please check your internet connection and try again")
+                    .setPositiveButton(android.R.string.ok) { _, _ -> }
+                    .setIcon(android.R.drawable.ic_dialog_alert).show()
+                return
+            } else {
                 AlertDialog.Builder(this).setTitle("Fetch New Data File")
                     .setMessage("Fetch New Data File")
                     .setPositiveButton(android.R.string.ok) { _, _ ->
@@ -229,8 +245,7 @@ class MainActivity : AppCompatActivity() {
                         fetch(COMPLETE_URL)
                     }
                     .setIcon(android.R.drawable.ic_dialog_alert).show()
-                //return
-            //}
+            }
         } else {
             // use cache file - "TidalExtremesJson.json"
             jsonStr = readJSONFile(1)
@@ -239,12 +254,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     fun DrawClockHand(rotationAngle: Double) {
-        //line(cx,
-        // cy,
-        // cx + cos(mapValue) * minutesRadius,
-        // cy + sin(mapValue) * minutesRadius);
-        val xEndPt = cf!!.centerX + Math.cos(rotationAngle).toFloat() * cf!!.clockRadius
-        val yEndPt = cf!!.centerY + Math.sin(rotationAngle).toFloat() * cf!!.clockRadius
+        Log.i(TAG, "DrawClockHand()")
+        val xEndPt = cf!!.centerX + cos(rotationAngle).toFloat() * cf!!.clockRadius
+        val yEndPt = cf!!.centerY + sin(rotationAngle).toFloat() * cf!!.clockRadius
 
         cf!!.setEndPoints(xEndPt, yEndPt)
     }
@@ -261,66 +273,44 @@ class MainActivity : AppCompatActivity() {
         textViewExt4 = findViewById(R.id.textview_ext4)
         textViewStatus = findViewById(R.id.textview_status)
 
-        buttonFetch = findViewById(R.id.fetchButton)
-        buttonFetch = findViewById(R.id.stopButton)
-
+        ProcessBuilder()
+            .command("logcat", "-c")
+            .redirectErrorStream(true)
+            .start()
 
         Log.i(TAG, "\n\nonCreate() - Start of session - Dump Logcat\n")
 
         cf = findViewById<View>(R.id.clockFace) as ClockFace
 
-        if (!isNetworkConnected()) {
-            AlertDialog.Builder(this).setTitle("No Internet Connection")
-                .setMessage("Please check your internet connection and try again")
-                .setPositiveButton(android.R.string.ok) { _, _ -> }
-                .setIcon(android.R.drawable.ic_dialog_alert).show()
-            return
-        }
         initalizeData()
 
-//        val apiUrlSite = "https://livescore6.p.rapidapi.com/matches/v2/list-live?"
-//        val apiUrlInputs = "Category=soccer"
-//        val flightAPIUrl = "https://aerodatabox.p.rapidapi.com/flights/%7BsearchBy%7D/KL1395/2020-06-10"
-//        val covidAPIUrl = "https://covid-193.p.rapidapi.com/countries"
 
-
-        buttonFetch?.setOnClickListener(View.OnClickListener {
-            // Launch get request
-            fetch(COMPLETE_URL)
-
-            //fetch("https://raw.githubusercontent.com/justmobiledev/android-kotlin-rest-1/main/support/data/bloginfo.json"
-            //fetch(covidAPIUrl)
-            //fetch(flightAPIUrl)
-        })
-
-        var task: Timer? = Timer()
-
-        buttonStop?.setOnClickListener(View.OnClickListener {
-            // use to stop timer
-            if (task != null) {
-                task!!.cancel()
-                task = null
-            }
-        })
+/*        val dHeight = Resources.getSystem().displayMetrics.heightPixels;
+        val dWidth = Resources.getSystem().displayMetrics.widthPixels;
+        cf!!.centerX = (dWidth / 2).toFloat()
+        cf!!.centerY = (dHeight / 2).toFloat()*/
 
         doTimerFunction()
+        cf!!.clearCanvas()
 
         //need val res for {ti.datetime} since = res.getString(R.string.extreme, ti.datetime, ti.status)
-        val res: Resources = resources
+        //val res: Resources = resources
         if (modelTideInfo != null) {
             task!!.scheduleAtFixedRate(
-                timerTask() {
+                timerTask {
                     // Do Task..
                     doTimerFunction()
-                }, 10000, 10000)
+                    cf!!.clearCanvas()
+                }, 50000, 50000)
         }
     }
 
     private fun doTimerFunction() {
+        Log.i(TAG, "doTimerFunction()")
         tc.setNowUTC()
-        cf!!.clearCanvas()
-        var mHandLength = cf!!.clockRadius
-        var mappingValue = 0.0
+
+        //var mHandLength = cf!!.clockRadius
+        val angle: Double
 
         val fIdx = tc.findNextTide(modelTideInfo!!)
         when (fIdx) {
@@ -338,21 +328,13 @@ class MainActivity : AppCompatActivity() {
                     }
                     .setIcon(android.R.drawable.ic_dialog_alert).show()*/
             }
-            0 -> {  //this should never happen
-                val fndExt = modelTideInfo!!.extremes[fIdx]
-                Log.i(TAG, "now UTC Time = ${tc.mNowUtc} & extreme UTC = ${fndExt.datetime}")
-                statusText  = tc.timeToTideMsg(fndExt.datetime)
-                Log.i(TAG, "fdx = 0, $statusText")
-                mappingValue = tc.setClockHand(modelTideInfo!!, fIdx)
-                DrawClockHand(mappingValue)
-            }
             else -> {
                 val fndExt = modelTideInfo!!.extremes[fIdx]
                 Log.i(TAG, "now UTC Time = ${tc.mNowUtc} & extreme UTC = ${fndExt.datetime}")
                 statusText = tc.timeToTideMsg(fndExt.datetime)
                 Log.i(TAG, "fIdx = $fIdx, $statusText")
-                mappingValue = tc.setClockHand(modelTideInfo!!, fIdx)
-                DrawClockHand(mappingValue)
+                angle = tc.setClockHandAngle(modelTideInfo!!, fIdx)
+                DrawClockHand(angle)
             }
         }
         textViewStatus?.text = statusText.toString()
@@ -379,8 +361,27 @@ class MainActivity : AppCompatActivity() {
         try {
             Log.i(TAG, "MainActivity onPause() - Dump Logcat")
             writeLogCat(this@MainActivity)
+
+/*            if (task != null) {
+                task!!.cancel()
+                task = null
+            }*/
+
         } catch (e: java.lang.Exception) {
             Log.e(TAG, "MainActivity onPause() error msg " + e.message)
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        try {
+            Log.i(TAG, "MainActivity onDestroy() - remove task timer")
+            if (task != null) {
+                task!!.cancel()
+                task = null
+            }
+        } catch (e: java.lang.Exception) {
+            Log.e(TAG, "MainActivity onDestroy() error msg " + e.message)
         }
     }
 

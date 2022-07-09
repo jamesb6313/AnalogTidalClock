@@ -1,8 +1,6 @@
 package com.jb.restsample1
 
 import android.util.Log
-import androidx.lifecycle.Transformations.map
-import com.jb.restsample1.model.TidalExtremes
 import com.jb.restsample1.model.TidalInfo
 import java.text.SimpleDateFormat
 import java.util.*
@@ -12,19 +10,12 @@ class TidalCalc {
 
     var mNowUtc: String? = null
 
-    companion object {
-        //1
-        private const val URL = "https://livescore6.p.rapidapi.com/matches/v2/list-live"
-        private const val SEARCH = "Category=soccer"
-        private const val COMPLETE_URL = "$URL?$SEARCH"
-    }
-
     fun setNowUTC() {
         val mTime = Calendar.getInstance().time
         val outputFmt = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.CANADA)
-        outputFmt.timeZone = TimeZone.getTimeZone("ADT")  //can use either ADT or UTC - same result in ADT
+        //outputFmt.timeZone = TimeZone.getTimeZone("UTC")  //can use either ADT or UTC - same result in ADT
         // see: if affected in AST
-        outputFmt.timeZone.dstSavings   //current value 0 on May 29
+        //outputFmt.timeZone.dstSavings   //current value 0 on May 29
 
         val outputStr =  outputFmt.format(mTime)
         mNowUtc = outputStr.substring(0, 10) + "T" + outputStr.substring(11) + "+00:00"
@@ -33,6 +24,8 @@ class TidalCalc {
     fun convertUTCTODate(utc: String) : Long? {
         val utcString = utc.substring(0, 10) + " " + utc.substring(11,19)
         val utcDateFmt = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.CANADA)
+        utcDateFmt.timeZone = TimeZone.getTimeZone("UTC")  //can use either ADT or UTC - same result in ADT
+
         return utcDateFmt.parse(utcString)?.time
     }
 
@@ -42,11 +35,11 @@ class TidalCalc {
         return (ratio * (target.last - target.first)).toDouble() + target.first
     }
 
-    fun setClockHand(mExtremes: TidalInfo, foundIdx: Int) : Double{
+    fun setClockHandAngle(mExtremes: TidalInfo, foundIdx: Int) : Double{
         val tval2 = mExtremes.extremes[foundIdx].datetime
         val timeVal = mNowUtc
-        var earlyVal = ""
-        var lateVal = ""
+        val earlyVal: String
+        val lateVal: String
 
         // Get Range between Low-High, High-Low Tides in minutes
         if (foundIdx == 0) {
@@ -56,11 +49,11 @@ class TidalCalc {
             earlyVal = mExtremes.extremes[foundIdx - 1].datetime     // Tidal Ext before found
             lateVal = tval2
         }
-        Log.i(TAG, "//////////////////////////////////////////////////////////")
+/*        Log.i(TAG, "//////////////////////////////////////////////////////////")
         Log.i(TAG, "earlyVal = $earlyVal")
         Log.i(TAG, "lateVal = $lateVal")
         Log.i(TAG, "Approaching - ${mExtremes.extremes[foundIdx].state}")
-        Log.i(TAG, "//////////////////////////////////////////////////////////")
+        Log.i(TAG, "//////////////////////////////////////////////////////////")*/
 
         val tidalInterval = calcDiff(earlyVal, lateVal)     //minsInHr
         var nowToTideInterval = calcDiff(timeVal, lateVal)  //curMinsInHr - if foundIdx != 0
@@ -68,22 +61,22 @@ class TidalCalc {
         if (foundIdx == 0) {
             nowToTideInterval = calcDiff(timeVal, earlyVal)
         }
-        var mappingValue = 0.0
+        var angle: Double
 
         if (mExtremes.extremes[foundIdx].state == "LOW TIDE") {
-            mappingValue = convertMap((tidalInterval - nowToTideInterval).toFloat(), (0..tidalInterval.toInt()), (0..180))
-            Log.i(TAG, "mappingValue (# between 0 & 180) = $mappingValue")
-            mappingValue = (Math.toRadians(mappingValue) - (Math.PI/2))
+            angle = convertMap((tidalInterval - nowToTideInterval).toFloat(), (0..tidalInterval.toInt()), (0..180))
+            Log.i(TAG, "angle (# between 0 & 180) = $angle")
+            angle = (Math.toRadians(angle) - (Math.PI/2))
         } else {
-            mappingValue = convertMap((tidalInterval - nowToTideInterval).toFloat(), (0..tidalInterval.toInt()), (180..360))
-            Log.i(TAG, "mappingValue (# between 180 & 360) = $mappingValue")
-            mappingValue = (Math.toRadians(mappingValue) - (Math.PI/2))
+            angle = convertMap((tidalInterval - nowToTideInterval).toFloat(), (0..tidalInterval.toInt()), (180..360))
+            Log.i(TAG, "angle (# between 180 & 360) = $angle")
+            angle = (Math.toRadians(angle) - (Math.PI/2))
         }
-        Log.i(TAG, "minInHr = tidalInterval (High to Low) = $tidalInterval")
+       /* Log.i(TAG, "minInHr = tidalInterval (High to Low) = $tidalInterval")
         Log.i(TAG, "curMinInHr = nowToTideInterval (now to tide extreme in Minutes) = $nowToTideInterval")
-
+*/
         //line(cx, cy, cx + cos(mapValue) * minutesRadius, cy + sin(mapValue) * minutesRadius);
-        return mappingValue
+        return angle
     }
 
     fun findNextTide(t: TidalInfo): Int {

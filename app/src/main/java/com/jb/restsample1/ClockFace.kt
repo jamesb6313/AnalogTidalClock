@@ -21,28 +21,23 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
     private var mBitmap: Bitmap
     private var mBitmapPaint = Paint(Paint.DITHER_FLAG)
     private var appStarted = false
+    private var scaleFactor = 0f
+    private var trans : Matrix? = null
 
     var centerX = 0f
     var centerY = 0f
     var endPtX = 0f
     var endPtY = 0f
-    var scale_factor = 0f
     var clockRadius = CLOCK_HAND_LENGTH
-    var trans : Matrix? = null
 
     init {
         Log.i(TAG,"ClockFace init()")
-        myInit()
+
         val res = resources
 
         mBitmap = BitmapFactory.decodeResource(res, R.drawable.tidal_clock_face2)
         mCanvas = Canvas(mBitmap.copy(Bitmap.Config.ARGB_8888, true))
-        trans = myScale()
 
-    }
-
-    fun myInit() {
-        Log.i(TAG,"ClockFace myInit()")
         mBitmapPaint.isAntiAlias = true
         mBitmapPaint.isDither = true
         mBitmapPaint.color = DEFAULT_COLOR
@@ -55,13 +50,14 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
         mBitmapPaint.isFilterBitmap = true
 
 
-        /*val metrics = DisplayMetrics()
-        metrics.scaledDensity*/
-        /*val res = resources
-        mBitmap = BitmapFactory.decodeResource(res, R.drawable.tidal_clock_face)*/
+/*        val displayMetrics = DisplayMetrics()
+        //getWindowManager().getDefaultDisplay().getMetrics(displayMetrics)
+        val dHeight = displayMetrics.heightPixels
+        val dWidth = displayMetrics.widthPixels
 
-        //mCanvas = Canvas(mBitmap.copy(Bitmap.Config.ARGB_8888, true))
-
+        centerX = (dWidth / 2).toFloat()
+        centerY = (dHeight / 2).toFloat()*/
+        Log.i(TAG,"ClockFace init. centerX = $centerX, centerY = $centerY, clockRadius = $clockRadius")
     }
 
     //See: https://stackoverflow.com/questions/15440647/scaled-bitmap-maintaining-aspect-ratio
@@ -70,81 +66,62 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
         val originalWidth: Float = mBitmap.width.toFloat()
         val originalHeight: Float = mBitmap.height.toFloat()
 
-        scale_factor = width / originalWidth
+        scaleFactor = width / originalWidth
 
         val xTranslation = 0.0f
-        val yTranslation = (height - originalHeight * scale_factor) / 2.0f
+        val yTranslation = (height - originalHeight * scaleFactor) / 2.0f
 
         val transformation = Matrix()
         transformation.postTranslate(xTranslation, yTranslation)
-        transformation.preScale(scale_factor, scale_factor)
+        transformation.preScale(scaleFactor, scaleFactor)
 
         return transformation
     }
 
+    //Example fillArrow()
     //See: https://stackoverflow.com/questions/11975636/how-to-draw-an-arrow-using-android-graphic-class
-    private fun fillArrow(canvas: Canvas, x0: Float, y0: Float, x1: Float, y1: Float) {
-        mBitmapPaint.setStyle(Paint.Style.FILL)
-        val deltaX = x1 - x0
-        val deltaY = y1 - y0
-        val distance = Math.sqrt((deltaX * deltaX + deltaY * deltaY).toDouble())
-        val frac = (1 / (distance / 30)).toFloat()
-        val point_x_1 = x0 + ((1 - frac) * deltaX + frac * deltaY)
-        val point_y_1 = y0 + ((1 - frac) * deltaY - frac * deltaX)
-        val point_x_3 = x0 + ((1 - frac) * deltaX - frac * deltaY)
-        val point_y_3 = y0 + ((1 - frac) * deltaY + frac * deltaX)
-
-        val path = Path()
-        path.fillType = Path.FillType.EVEN_ODD
-        path.moveTo(point_x_1, point_y_1)
-        path.lineTo(x1, y1)
-        path.lineTo(point_x_3, point_y_3)
-        path.lineTo(point_x_1, point_y_1)
-        path.lineTo(point_x_1, point_y_1)
-        path.close()
-        canvas.drawPath(path, mBitmapPaint)
-    }
 
     fun setEndPoints(xPt: Float, yPt: Float) {
-        Log.i(TAG,"ClockFace setEndPoints(). endPtX = $endPtX, xPt = $xPt, endPtX = $endPtY, xPt = $yPt")
+        Log.i(TAG,"ClockFace setEndPoints(). endPtX = $endPtX, xPt = $xPt, endPtY = $endPtY, yPt = $yPt\n\n")
         endPtX = xPt
         endPtY = yPt
     }
 
     fun clearCanvas() {
         Log.i(TAG,"ClockFace ClearCanvas(). appStarted = $appStarted")
-        myInit()
-        appStarted = true
-        val res = resources
-        mBitmap = BitmapFactory.decodeResource(res, R.drawable.tidal_clock_face2)
-        mCanvas = Canvas(mBitmap.copy(Bitmap.Config.ARGB_8888, true))
+
         invalidate()
     }
 
     override fun onDraw(canvas: Canvas) {
         // call the super method to keep any drawing from the parent side.
         super.onDraw(canvas)
-        Log.i(TAG,"ClockFace onDraw(). centerX = $centerX, centerY = $centerY, trans = $trans, clockRadius = $clockRadius")
+        Log.i(TAG,"ClockFace onDraw() - 1.  centerX = $centerX, centerY = $centerY, endPtX = $endPtX, endPtY = $endPtY")
+
         canvas.save()
 
-        trans = myScale()
-        canvas.drawBitmap(mBitmap, trans!!, mBitmapPaint)
-
-        centerX = (width / 2).toFloat()
-        centerY = (height / 2).toFloat()
-        //clockRadius = clockRadius * scale_factor
-
         if (!appStarted) {
+            appStarted = true
+
+            trans = myScale()
+
+
+            centerX = (width / 2).toFloat()
+            centerY = (height / 2).toFloat()
+            clockRadius *= scaleFactor
             setEndPoints(centerX, centerY - clockRadius)
-            clockRadius *= scale_factor
+            Log.i(TAG,"ClockFace onDraw() - 2. centerX = $centerX, centerY = $centerY, endPtX = $endPtX, endPtY = $endPtY")
+            Log.i(TAG,"ClockFace onDraw() - 2. trans = $trans, clockRadius = $clockRadius")
+
+
+            //canvas.drawLine(centerX, centerY, endPtX, endPtY, mBitmapPaint)
         }
 
-        //fillArrow(canvas, centerX, centerY, centerX, centerY + CLOCK_HAND_LENGTH)
-        //if (appStarted)
-        canvas.drawLine(centerX, centerY, endPtX, endPtY, mBitmapPaint)
-/*        else
-            canvas.drawLine(centerX, centerY, centerX, centerY - 300, mBitmapPaint)*/
-    }
+        Log.i(TAG,"ClockFace onDraw() - 3. drawLine(centerX = $centerX, centerY = $centerY, endPtX = $endPtX, endPtY = $endPtY...\n\n")
 
+        canvas.drawBitmap(mBitmap, trans!!, mBitmapPaint)
+        canvas.drawLine(centerX, centerY, endPtX, endPtY, mBitmapPaint)
+
+    }
 
 }
